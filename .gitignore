@@ -1,0 +1,32 @@
+# Binaries
+*.exe
+dns-proxy
+
+# Build output
+*.out
+*.o
+
+# Dependency directories
+vendor/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go modules cache
+/go.sum
+
+# Test output
+*.test
+
+# Config (if local override)
+*.local.conf
