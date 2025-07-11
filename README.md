@@ -13,11 +13,13 @@ dns-proxy is a Go project for managing DNS TXT records via cPanel, supporting bo
 Create a config file for each app:
 
 - For the HTTP API (`dns-proxy-api`): `/etc/dns-proxy-api.conf`
+
   ```ini
   API_KEY=your_api_key_here
   ```
 
 - For the CLI (`dns-proxy-cli`): `/etc/dns-proxy-cli.conf`
+  
   ```ini
   cpanel_url=https://your-cpanel-domain:2083
   cpanel_user=cpanel_username
@@ -151,6 +153,32 @@ dns-proxy-api start
    ```sh
    /usr/local/bin/dns-proxy-cli set-txt --domain "$CERTBOT_DOMAIN" --key "_acme-challenge.$CERTBOT_DOMAIN" --value "$CERTBOT_VALIDATION"
    ```
+
+### CLI Commands
+
+The `dns-proxy-cli` supports the following commands:
+
+- **set-txt**: Add or update a DNS TXT record
+
+  ```sh
+  dns-proxy-cli set-txt --domain <domain> --key <key> --value <value>
+  ```
+
+  - `--domain`: The domain name (e.g., example.com)
+  - `--key`: The TXT record key (e.g., _acme-challenge)
+  - `--value`: The TXT record value
+
+- **delete-txt**: Remove a DNS TXT record
+
+  ```sh
+  dns-proxy-cli delete-txt --domain <domain> --key <key> --value <value>
+  ```
+
+  - `--domain`: The domain name
+  - `--key`: The TXT record key
+  - `--value`: The TXT record value (must match the value to be deleted)
+
+You can extend the CLI by adding new commands in the `internal/commands/` directory, each as a separate file implementing the `Command` interface.
 
 ## Notes
 

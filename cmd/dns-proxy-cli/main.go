@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"dns-proxy/internal/commands"
 	"dns-proxy/internal/cpanel"
 )
 
@@ -34,38 +35,65 @@ func loadCPanelConfig(path string) map[string]string {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: dns-proxy-cli set-txt --domain <domain> --key <key> --value <value>")
+		fmt.Println("Usage: dns-proxy-cli <command> [options]")
+		fmt.Println("Commands:")
+		fmt.Println("  set-txt --domain <domain> --key <key> --value <value>")
+		fmt.Println("  delete-txt --domain <domain> --key <key> --value <value>")
 		os.Exit(1)
 	}
 
 	subcmd := os.Args[1]
-	if subcmd != "set-txt" {
-		fmt.Println("Unknown command:", subcmd)
+
+	// Create command factory and get command
+	factory := commands.NewCommandFactory()
+	cmd, err := factory.CreateCommand(subcmd)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	setTxtCmd := flag.NewFlagSet("set-txt", flag.ExitOnError)
-	domain := setTxtCmd.String("domain", "", "Domain name")
-	key := setTxtCmd.String("key", "", "TXT record key")
-	value := setTxtCmd.String("value", "", "TXT record value")
+	// Parse arguments based on command
+	args := parseCommandArgs(subcmd, os.Args[2:])
 
-	setTxtCmd.Parse(os.Args[2:])
-
-	if *domain == "" || *key == "" || *value == "" {
-		fmt.Println("All arguments --domain, --key, and --value are required.")
+	// Validate arguments
+	if err := cmd.ValidateArgs(args); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("Usage: %s\n", cmd.Usage())
 		os.Exit(1)
 	}
 
+	// Load cPanel config
 	cfg := loadCPanelConfig("/etc/dns-proxy-cli.conf")
 	cpCfg, err := cpanel.NewCPanelConfig(cfg)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
 
-	err = cpCfg.CreateTxtRecord(*domain, *key, *value)
-	if err != nil {
-		log.Fatalf("Failed to set TXT record: %v", err)
+	// Execute command
+	if err := cmd.Execute(cpCfg, args); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+func parseCommandArgs(subcmd string, args []string) map[string]string {
+	var cmdFlags *flag.FlagSet
+
+	switch subcmd {
+	case "set-txt", "delete-txt":
+		cmdFlags = flag.NewFlagSet(subcmd, flag.ExitOnError)
+	default:
+		return nil
 	}
 
-	fmt.Println("TXT record set successfully.")
+	domain := cmdFlags.String("domain", "", "Domain name")
+	key := cmdFlags.String("key", "", "TXT record key")
+	value := cmdFlags.String("value", "", "TXT record value")
+
+	cmdFlags.Parse(args)
+
+	return map[string]string{
+		"domain": *domain,
+		"key":    *key,
+		"value":  *value,
+	}
 }
