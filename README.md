@@ -25,6 +25,85 @@ cpanel_apikey=cpanel_api_token
 - `cpanel_user`: The cPanel username
 - `cpanel_apikey`: The cPanel API token
 
+## Installation
+
+1. **Build the binary:**
+
+   ```sh
+   go build -o dns-proxy main.go
+   ```
+
+1. **Install the binary:**
+
+   ```sh
+   cp dns-proxy /usr/local/bin/
+   ```
+
+   This will make `dns-proxy` available system-wide.
+
+## Running as a Service (SystemD)
+
+To run `dns-proxy` as a systemd service on Linux:
+
+1. Create a systemd service file `/etc/systemd/system/dns-proxy.service` with the following content:
+
+   ```ini
+   [Unit]
+   Description=DNS Proxy API Service
+   After=network.target
+
+   [Service]
+   Type=simple
+   ExecStart=/usr/local/bin/dns-proxy
+   Restart=on-failure
+   User=nobody
+   Group=nogroup
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Adjust `User` and `Group` as needed for your environment.
+
+1. Reload systemd and start the service:
+
+   ```sh
+   systemctl daemon-reload
+   systemctl enable dns-proxy
+   systemctl start dns-proxy
+   ```
+
+1. Check the status:
+
+   ```sh
+   systemctl status dns-proxy
+   ```
+
+### OpenRC (Alpine Linux)
+
+For Alpine Linux (OpenRC), create `/etc/init.d/dns-proxy` with:
+
+```sh
+#!/sbin/openrc-run
+command="/usr/local/bin/dns-proxy"
+command_background="yes"
+description="DNS Proxy API Service"
+
+pidfile="/var/run/dns-proxy.pid"
+
+start_pre() {
+    checkpath --directory /var/run
+}
+```
+
+Make it executable and enable/start the service:
+
+```sh
+chmod +x /etc/init.d/dns-proxy
+rc-update add dns-proxy
+dns-proxy start
+```
+
 ## Usage
 
 1. **Build and run the server:**
@@ -36,7 +115,7 @@ cpanel_apikey=cpanel_api_token
 
    The server will listen on port `5000` by default.
 
-2. **Send a request to set a TXT record:**
+1. **Send a request to set a TXT record:**
 
    - Endpoint: `POST /set_txt`
    - Headers:
