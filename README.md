@@ -1,51 +1,50 @@
 # dns-proxy
 
-dns-proxy is a lightweight HTTP server written in Go that provides an API endpoint to set DNS TXT records via cPanel's API. It is designed to automate DNS-01 challenges (such as for Let's Encrypt) or other scenarios where programmatic TXT record management is required.
+dns-proxy is a Go project for managing DNS TXT records via cPanel, supporting both an HTTP API and a CLI tool for secure automation (e.g., Let's Encrypt DNS-01 challenges).
 
 ## Features
 
-- Exposes a `/set_txt` HTTP endpoint for setting TXT records
-- Authenticates requests using a Bearer API key
-- Reads configuration from a simple config file
-- Interacts with cPanel's ZoneEdit API to add TXT records
+- HTTP API (`dns-proxy-api`): Exposes `/set_txt` endpoint for remote TXT record management
+- CLI tool (`dns-proxy-cli`): Allows local DNS TXT record management via command line, ideal for certbot hooks
+- Reads configuration from `/etc/dns-proxy-api.conf` (API) or `/etc/dns-proxy-cli.conf` (CLI)
 
 ## Configuration
 
-Create a config file (default: `/etc/dns-proxy.conf`) with the following format:
+Create a config file for each app:
 
-```ini
-API_KEY=your_api_key_here
-cpanel_url=https://your-cpanel-domain:2083
-cpanel_user=cpanel_username
-cpanel_apikey=cpanel_api_token
+- For the HTTP API (`dns-proxy-api`): `/etc/dns-proxy-api.conf`
+  ```ini
+  API_KEY=your_api_key_here
+  ```
+
+- For the CLI (`dns-proxy-cli`): `/etc/dns-proxy-cli.conf`
+  ```ini
+  cpanel_url=https://your-cpanel-domain:2083
+  cpanel_user=cpanel_username
+  cpanel_apikey=cpanel_api_token
+  ```
+
+- `API_KEY`: The Bearer token required for API requests (only for API)
+- `cpanel_url`, `cpanel_user`, `cpanel_apikey`: cPanel credentials (only for CLI)
+
+## Build
+
+Use the provided Makefile to build both binaries:
+
+```sh
+make
 ```
 
-- `API_KEY`: The Bearer token required for API requests
-- `cpanel_url`: The base URL of your cPanel instance
-- `cpanel_user`: The cPanel username
-- `cpanel_apikey`: The cPanel API token
+This will generate:
 
-## Installation
-
-1. **Build the binary:**
-
-   ```sh
-   go build -o dns-proxy main.go
-   ```
-
-1. **Install the binary:**
-
-   ```sh
-   cp dns-proxy /usr/local/bin/
-   ```
-
-   This will make `dns-proxy` available system-wide.
+- `dns-proxy-api` (HTTP API server)
+- `dns-proxy-cli` (command-line tool)
 
 ## Running as a Service (SystemD)
 
-To run `dns-proxy` as a systemd service on Linux:
+To run `dns-proxy-api` as a systemd service on Linux:
 
-1. Create a systemd service file `/etc/systemd/system/dns-proxy.service` with the following content:
+1. Create a systemd service file `/etc/systemd/system/dns-proxy-api.service` with the following content:
 
    ```ini
    [Unit]
@@ -54,7 +53,7 @@ To run `dns-proxy` as a systemd service on Linux:
 
    [Service]
    Type=simple
-   ExecStart=/usr/local/bin/dns-proxy
+   ExecStart=/usr/local/bin/dns-proxy-api
    Restart=on-failure
    User=nobody
    Group=nogroup
@@ -69,27 +68,27 @@ To run `dns-proxy` as a systemd service on Linux:
 
    ```sh
    systemctl daemon-reload
-   systemctl enable dns-proxy
-   systemctl start dns-proxy
+   systemctl enable dns-proxy-api
+   systemctl start dns-proxy-api
    ```
 
 1. Check the status:
 
    ```sh
-   systemctl status dns-proxy
+   systemctl status dns-proxy-api
    ```
 
 ### OpenRC (Alpine Linux)
 
-For Alpine Linux (OpenRC), create `/etc/init.d/dns-proxy` with:
+For Alpine Linux (OpenRC), create `/etc/init.d/dns-proxy-api` with:
 
 ```sh
 #!/sbin/openrc-run
-command="/usr/local/bin/dns-proxy"
+command="/usr/local/bin/dns-proxy-api"
 command_background="yes"
 description="DNS Proxy API Service"
 
-pidfile="/var/run/dns-proxy.pid"
+pidfile="/var/run/dns-proxy-api.pid"
 
 start_pre() {
     checkpath --directory /var/run
@@ -99,21 +98,20 @@ start_pre() {
 Make it executable and enable/start the service:
 
 ```sh
-chmod +x /etc/init.d/dns-proxy
-rc-update add dns-proxy
-dns-proxy start
+chmod +x /etc/init.d/dns-proxy-api
+rc-update add dns-proxy-api
+dns-proxy-api start
 ```
 
 ## Usage
 
-1. **Build and run the server:**
+### HTTP API (for remote integration)
+
+1. **Start the server:**
 
    ```sh
-   go build -o dns-proxy main.go
-   ./dns-proxy
+   ./dns-proxy-api
    ```
-
-   The server will listen on port `5000` by default.
 
 1. **Send a request to set a TXT record:**
 
@@ -140,11 +138,25 @@ dns-proxy start
      -d '{"domain":"example.com","key":"_acme-challenge","value":"txt_value_here"}'
    ```
 
+### CLI (for local automation/certbot)
+
+1. **Set a TXT record:**
+
+   ```sh
+   dns-proxy-cli set-txt --domain example.com --key _acme-challenge --value txt_value_here
+   ```
+
+1. **Example certbot hook:**
+
+   ```sh
+   /usr/local/bin/dns-proxy-cli set-txt --domain "$CERTBOT_DOMAIN" --key "_acme-challenge.$CERTBOT_DOMAIN" --value "$CERTBOT_VALIDATION"
+   ```
+
 ## Notes
 
-- The server must have access to the cPanel API endpoint.
-- The config file path can be changed in the source code if needed.
-- Only TXT records are supported by this proxy.
+- Use the CLI for maximum security dacă rulezi totul local.
+- Use the HTTP API only if you need remote access.
+- Config files are separate for each binary, but can be identical in content.
 
 ## License
 
