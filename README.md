@@ -2,6 +2,8 @@
 
 dns-proxy is a Go project for managing DNS TXT records via cPanel, supporting both an HTTP API and a CLI tool for secure automation (e.g., Let's Encrypt DNS-01 challenges).
 
+> **Note:** This project uses the `cPanel API 2` (ZoneEdit module) for all DNS operations. See cPanel documentation for details.
+
 ## Features
 
 - HTTP API (`dns-proxy-api`): Exposes `/set_txt` endpoint for remote TXT record management
