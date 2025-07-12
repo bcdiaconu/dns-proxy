@@ -151,7 +151,7 @@ dns-proxy-api start
 1. **Example certbot hook:**
 
    ```sh
-   /usr/local/bin/dns-proxy-cli set-txt --domain "$CERTBOT_DOMAIN" --key "_acme-challenge.$CERTBOT_DOMAIN" --value "$CERTBOT_VALIDATION"
+   dns-proxy-cli set-txt --domain "$CERTBOT_DOMAIN" --key "_acme-challenge.$CERTBOT_DOMAIN" --value "$CERTBOT_VALIDATION"
    ```
 
 ### CLI Commands
