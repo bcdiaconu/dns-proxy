@@ -17,6 +17,14 @@ type CPanelConfig struct {
 	APIKey string
 }
 
+// TxtRecord represents a TXT DNS record
+type TxtRecord struct {
+	Line  int    `json:"line"`
+	Key   string `json:"key"`   // The record name without the zone
+	Value string `json:"value"` // The txtdata
+	Name  string `json:"name"`  // Full name including zone
+}
+
 func NewCPanelConfig(cfg map[string]string) (*CPanelConfig, error) {
 	url := cfg["cpanel_url"]
 	user := cfg["cpanel_user"]
@@ -353,6 +361,94 @@ func (c *CPanelConfig) EditTxtRecord(domain, key, oldValue, newValue string) err
 	fmt.Printf("DEBUG: edit_zone_record response: %s\n", string(editBody))
 
 	return nil
+}
+
+// ListTxtRecords lists all TXT records for a given domain with optional filtering by key
+func (c *CPanelConfig) ListTxtRecords(domain, keyFilter string) ([]TxtRecord, error) {
+	// Extract the actual zone
+	zone, recordPrefix := extractZoneAndName(domain)
+
+	fmt.Printf("DEBUG: Listing TXT records for zone='%s', recordPrefix='%s', keyFilter='%s'\n", zone, recordPrefix, keyFilter)
+
+	// 1. Fetch all zone records using cPanel API v2
+	fetchData := url.Values{}
+	fetchData.Set("cpanel_jsonapi_user", c.User)
+	fetchData.Set("cpanel_jsonapi_apiversion", "2")
+	fetchData.Set("cpanel_jsonapi_module", "ZoneEdit")
+	fetchData.Set("cpanel_jsonapi_func", "fetchzone")
+	fetchData.Set("domain", zone)    // Use the extracted zone
+	fetchData.Set("customonly", "0") // Return all records, not just non-essential ones
+
+	fullURL := fmt.Sprintf("%s/json-api/cpanel", c.URL)
+	req, err := http.NewRequest("POST", fullURL, bytes.NewBufferString(fetchData.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create fetch request: %w", err)
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("cpanel %s:%s", c.User, c.APIKey))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected HTTP status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// 2. Parse cPanel API v2 response and find TXT records
+	var fetchResp struct {
+		CPanelResult struct {
+			Data []struct {
+				Record []struct {
+					Line    int    `json:"Line"` // Capital L as per API docs
+					Name    string `json:"name"`
+					Type    string `json:"type"`
+					TxtData string `json:"txtdata"`
+				} `json:"record"`
+			} `json:"data"`
+		} `json:"cpanelresult"`
+	}
+	if err := json.Unmarshal(body, &fetchResp); err != nil {
+		return nil, fmt.Errorf("failed to parse fetchzone response: %w", err)
+	}
+
+	var records []TxtRecord
+	zoneSuffix := "." + zone + "."
+
+	for _, data := range fetchResp.CPanelResult.Data {
+		for _, rec := range data.Record {
+			if rec.Type == "TXT" {
+				// Extract the key from the full name
+				key := strings.TrimSuffix(rec.Name, zoneSuffix)
+
+				// If we have a record prefix filter (e.g., from subdomain), check if it matches
+				if recordPrefix != "" {
+					expectedPrefix := keyFilter + "." + recordPrefix
+					if keyFilter != "" && !strings.HasPrefix(key, expectedPrefix) && key != expectedPrefix {
+						continue
+					}
+				} else if keyFilter != "" {
+					// Simple key filter
+					if !strings.HasPrefix(key, keyFilter) && key != keyFilter {
+						continue
+					}
+				}
+
+				records = append(records, TxtRecord{
+					Line:  rec.Line,
+					Key:   key,
+					Value: rec.TxtData,
+					Name:  rec.Name,
+				})
+			}
+		}
+	}
+
+	return records, nil
 }
 
 // extractZoneAndName extracts the zone and record name from a full domain

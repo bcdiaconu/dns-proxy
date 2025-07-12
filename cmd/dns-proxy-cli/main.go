@@ -50,6 +50,7 @@ func main() {
 		fmt.Println("  set-txt --domain <domain> --key <key> --value <value>")
 		fmt.Println("  delete-txt --domain <domain> --key <key> --value <value>")
 		fmt.Println("  edit-txt --domain <domain> --key <key> --old-value <old-value> --new-value <new-value>")
+		fmt.Println("  list-txt --domain <domain> [--key <key>]")
 		os.Exit(1)
 	}
 
@@ -131,6 +132,17 @@ func parseCommandArgs(subcmd string, args []string) map[string]string {
 			"key":       *key,
 			"old-value": *oldValue,
 			"new-value": *newValue,
+		}
+	case "list-txt":
+		cmdFlags = flag.NewFlagSet(subcmd, flag.ExitOnError)
+		domain := cmdFlags.String("domain", "", "Domain name")
+		key := cmdFlags.String("key", "", "TXT record key filter (optional)")
+
+		cmdFlags.Parse(args)
+
+		return map[string]string{
+			"domain": *domain,
+			"key":    *key,
 		}
 	default:
 		return nil
