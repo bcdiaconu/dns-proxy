@@ -27,6 +27,8 @@ func (f *DefaultCommandFactory) CreateCommand(name string) (Command, error) {
 		return &SetTxtCommand{}, nil
 	case "delete-txt":
 		return &DeleteTxtCommand{}, nil
+	case "edit-txt":
+		return &EditTxtCommand{}, nil
 	default:
 		return nil, &UnknownCommandError{Command: name}
 	}
